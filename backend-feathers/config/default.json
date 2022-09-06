@@ -1,0 +1,25 @@
+{
+  "host": "BASE_URL",
+  "port": 3030,
+  "public": "../public/",
+  "keycloak": "KEYCLOAK",
+  "paginate": {
+    "default": 10,
+    "max": 500
+  },
+  "authentication": {
+    "entity": null,
+    "secret": "YWVjYnJi",
+    "authStrategies": [
+      "oidc",
+      "jwt"
+    ],
+    "jwtOptions": {
+      "algorithm": "RS256"
+    },
+    "oidc": {
+      "issuer": "KEYCLOAK_ISSUER"
+    }
+  },
+  "mongodb": "mongodb://localhost:27017/backend_feathers"
+}
