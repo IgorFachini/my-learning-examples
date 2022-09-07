@@ -1,14 +1,14 @@
 
-const { NotImplemented } = require('@feathersjs/errors')
+const { NotImplemented } = require('@feathersjs/errors');
 module.exports = {
   before: {
     all: [],
-    find: [() => { throw new NotImplemented() }],
+    find: [() => { throw new NotImplemented(); }],
     get: [],
-    create: [() => { throw new NotImplemented() }],
-    update: [() => { throw new NotImplemented() }],
-    patch: [() => { throw new NotImplemented() }],
-    remove: [() => { throw new NotImplemented() }]
+    create: [() => { throw new NotImplemented(); }],
+    update: [() => { throw new NotImplemented(); }],
+    patch: [() => { throw new NotImplemented(); }],
+    remove: [() => { throw new NotImplemented(); }]
   },
 
   after: {
@@ -30,4 +30,4 @@ module.exports = {
     patch: [],
     remove: []
   }
-}
+};

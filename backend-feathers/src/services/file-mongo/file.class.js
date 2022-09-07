@@ -1,12 +1,12 @@
-const { Service } = require('feathers-mongodb')
+const { Service } = require('feathers-mongodb');
 
 exports.File = class File extends Service {
   constructor (options, app) {
-    super(options)
+    super(options);
 
     app.get('mongoClient').then(({ db }) => {
-      this.Model = db.collection('file')
-    })
+      this.Model = db.collection('file');
+    });
   }
 
   async create (data, params) {
@@ -15,7 +15,7 @@ exports.File = class File extends Service {
       name: params.file.originalname,
       size: params.file.size,
       type: params.file.mimetype || 'application/octet-stream'
-    }
-    return super.create(data.file, { attributes: ['id'] }).then(({ _id, name }) => ({ _id, name }))
+    };
+    return super.create(data.file, { attributes: ['id'] }).then(({ _id, name }) => ({ _id, name }));
   }
-}
+};

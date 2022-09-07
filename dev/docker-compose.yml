@@ -1,0 +1,153 @@
+version: "3"
+
+networks:
+  mongo-network:
+    driver: bridge
+
+services:
+  nginx:
+    container_name: nginx
+    image: nginx:1.23
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      - keycloak
+      - backend
+    extra_hosts:
+      - "localhost:${HOSTIP}"
+
+  ldap:
+    image: fabric8/389ds:latest
+    container_name: ldap
+    hostname: ldap
+    volumes:
+      - ~/Docker/volumes/realmName1/ldap/config:/etc/dirsrv:z
+      - ~/Docker/volumes/realmName1/ldap/data:/var/lib/dirsrv:z
+      - ~/Docker/volumes/realmName1/ldap/logs:/var/log/dirsrv:z
+    environment:
+      - DIR_SUFFIX=dc=dev,dc=realmName1
+      - DIRSRV_ADMIN_USERNAME=admin
+      - DIRSRV_MANAGER_PASSWORD=admin
+    ports:
+      - "389:389"
+
+  keycloak:
+    image: jboss/keycloak:11.0.3
+    container_name: keycloak
+    command: -Dkeycloak.profile.feature.upload_scripts=enabled
+             -Dkeycloak.profile.feature.account_api=enabled
+    environment:
+      - KEYCLOAK_LOGLEVEL=ERROR
+      - DB_VENDOR=mysql
+      - KEYCLOAK_USER=${KEYCLOAK_USER:-admin}
+      - KEYCLOAK_PASSWORD=${KEYCLOAK_PASSWORD:-admin}
+      - DB_ADDR=keycloak-mysql
+      - DB_PORT=3306
+      - DB_DATABASE=${KEYCLOAK_DB_DATABASE:-keycloak}
+      - DB_USER=${KEYCLOAK_DB_USER:-keycloak}
+      - DB_PASSWORD=${KEYCLOAK_DB_PASSWORD:-keycloak}
+      - KEYCLOAK_IMPORT=/tmp/realmName1-realm.json
+    ports:
+      - "8088:8080"
+    volumes:
+      - ../config/keycloak/realmName1-realm.json:/tmp/realmName1-realm.json:ro
+      - ../config/keycloak/themes/realmName1:/opt/jboss/keycloak/themes/realmName1:ro
+    depends_on:
+      - keycloak-mysql
+      - ldap
+
+  keycloak-mysql:
+    image: mysql:5.7
+    container_name: keycloak-mysql
+    volumes:
+      - ~/Docker/volumes/realmName1/keycloak-mysql:/var/lib/mysql:z
+    environment:
+      - MYSQL_ROOT_PASSWORD=${KEYCLOAK_DB_ROOT_PASSWORD:-root}
+      - MYSQL_DATABASE=${KEYCLOAK_DB_DATABASE:-keycloak}
+      - MYSQL_USER=${KEYCLOAK_DB_USER:-keycloak}
+      - MYSQL_PASSWORD=${KEYCLOAK_DB_PASSWORD:-keycloak}
+    ports:
+      - "3307:3306"
+
+  mongodb:
+    image: mongo:5.0.3
+    container_name: mongodb
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=root
+      - MONGO_INITDB_DATABASE=realmName1
+    networks:
+      - mongo-network
+    ports:
+      - 27017:27017
+    entrypoint: [ "/usr/bin/mongod", "--bind_ip_all", "--replSet", "rs0" ]
+    volumes:
+      - ~/Docker/volumes/realmName1/mongodb:/data/db/
+      - ../config/mongodb/rs-init.sh:/scripts/rs-init.sh:ro
+    extra_hosts:
+      - "turbina:${HOSTIP}"
+
+  # only local tests
+  mongo-express:
+    image: mongo-express:0.54
+    container_name: mongo-express
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_MONGODB_ENABLE_ADMIN=false
+      - ME_CONFIG_MONGODB_AUTH_DATABASE=realmName1
+      - ME_CONFIG_MONGODB_AUTH_USERNAME=user001
+      - ME_CONFIG_MONGODB_AUTH_PASSWORD=pwd001
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=admin
+    networks:
+      - mongo-network
+    ports:
+      - 8082:8081
+    depends_on:
+      - mongodb
+    volumes:
+      - ~/Docker/volumes/realmName1/mongodb:/data/db/
+
+  backend:
+    image: node:14
+    container_name: backend
+    working_dir: /app
+    entrypoint:
+      - /bin/sh
+      - -c
+      - "yarn && yarn dev"
+    ports:
+      - "3030:3030"
+    environment:
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+      - DATABASE_HOST=mongodb
+      - DATABASE_NAME=realmName1
+      - DATABASE_PORT=27017
+      - DATABASE_USER=user001
+      - DATABASE_PASSWORD=pwd001
+      - KC_CLIENT_ID=backend-cli
+      - KC_CLIENT_SECRET=243e3814-6435-4ea3-8d15-db7b745994ce
+      - KC_REALM=realmName1
+      - KC_AUTH_SERVER_URL=http://keycloak/auth
+      - KEYCLOAK_ISSUER=http://keycloak/auth/realms/realmName1
+      - KEYCLOAK=keycloak-docker
+      - BASE_URL=http://localhost
+    volumes:
+      - ../backend-feathers:/app:z
+      - ~/Docker/volumes/m2:/root/.m2:z
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+    extra_hosts:
+      - "keycloak:${HOSTIP}"
+    depends_on:
+      - keycloak
+    links:
+      - keycloak
+    external_links:
+      - keycloak:keycloak-docker

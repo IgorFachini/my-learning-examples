@@ -1,12 +1,11 @@
-const { AuthenticationService, JWTStrategy } = require('@feathersjs/authentication')
+const { AuthenticationService, JWTStrategy } = require('@feathersjs/authentication');
+const { OidcStrategy } = require('feathers-authentication-oidc');
 
-const { expressOauth } = require('@feathersjs/authentication-oauth')
+module.exports = function (app) {
+  const authentication = new AuthenticationService(app);
 
-module.exports = app => {
-  const authentication = new AuthenticationService(app)
+  authentication.register('jwt', new JWTStrategy());
+  authentication.register('oidc', new OidcStrategy());
 
-  authentication.register('jwt', new JWTStrategy())
-
-  app.use('/authentication', authentication)
-  app.configure(expressOauth())
-}
+  app.use('/authentication', authentication);
+};
